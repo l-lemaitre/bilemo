@@ -3,12 +3,15 @@
 namespace App\DataFixtures;
 
 use App\Entity\Product;
+use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 
 class ProductFixtures extends Fixture
 {
     private string $timezone;
+
+    private DateTimeImmutable $currentDate;
 
     public const PRODUCTS = [
         [
@@ -28,7 +31,7 @@ class ProductFixtures extends Fixture
         $this->timezone = $timezone;
 
         date_default_timezone_set($this->timezone);
-        $this->currentDate = new \DateTime();
+        $this->currentDate = new DateTimeImmutable();
     }
 
     public function load(ObjectManager $manager): void
@@ -48,7 +51,7 @@ class ProductFixtures extends Fixture
         $manager->flush();
     }
 
-    public function getDependencies()
+    public function getDependencies(): array
     {
         return [
             CustomerFixtures::class

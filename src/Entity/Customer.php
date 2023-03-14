@@ -18,11 +18,11 @@ class Customer
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(["getProducts", "getCustomers"])]
+    #[Groups(["getProducts", "getCustomers", "getUsers"])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255, unique: true)]
-    #[Groups(["getProducts", "getCustomers"])]
+    #[Groups(["getProducts", "getCustomers", "getUsers"])]
     #[Assert\NotBlank(message: "Le nom du client est obligatoire.")]
     private ?string $name = null;
 

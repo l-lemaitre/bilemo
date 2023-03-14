@@ -42,9 +42,7 @@ class CustomerController extends AbstractFOSRestController
             return $this->handleView($view);
         }
 
-        $currentDate = $doctrine->getRepository(Customer::class)->currentDate;
-
-        $customer = $customerService->addCustomer($entityManager, $customer, $currentDate);
+        $customer = $customerService->addCustomer($entityManager, $customer);
 
         $jsonCustomer = $serializer->serialize($customer, 'json', ['groups' => 'getCustomers']);
         $location = $urlGenerator->generate('app_api_customers_show', ['id' => $customer->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
@@ -76,9 +74,7 @@ class CustomerController extends AbstractFOSRestController
             return $this->handleView($view);
         }
 
-        $currentDate = $doctrine->getRepository(Customer::class)->currentDate;
-
-        $customerService->addCustomer($entityManager, $updatedCustomer, $currentDate, true);
+        $customerService->editCustomer($entityManager, $updatedCustomer);
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

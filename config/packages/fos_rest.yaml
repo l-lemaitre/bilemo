@@ -7,10 +7,10 @@ fos_rest:
 #      enabled: true
 #      validate: true
     view:
-#        formats:
-#            json: true
-#            html: true
-#        view_response_listener: true
+        formats:
+            json: true
+            html: false
+        view_response_listener: true
     exception:
         codes:
             'Symfony\Component\Routing\Exception\ResourceNotFoundException': 400
@@ -22,7 +22,7 @@ fos_rest:
 #            App\Exception\MyException: Forbidden area.
     format_listener:
         rules:
-            - { path: ^/api, prefer_extension: true, fallback_format: json, priorities: [ json, html ] }
+            - { path: ^/api, prefer_extension: true, fallback_format: json, priorities: json }
 #           - { path: '^/', priorities: [ 'html', '*/*' ], fallback_format: html, prefer_extension: true }
     # Do not interfere with API Platform
     zone:

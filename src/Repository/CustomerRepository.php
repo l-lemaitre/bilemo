@@ -19,9 +19,6 @@ class CustomerRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Customer::class);
-
-        date_default_timezone_set('Europe/Paris');
-        $this->currentDate = new \DateTime();
     }
 
     public function save(Customer $entity, bool $flush = false): void
