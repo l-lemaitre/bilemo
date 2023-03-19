@@ -28,7 +28,7 @@ class CustomerController extends AbstractFOSRestController
     }
 
     #[Route('/customers', name: 'customers_add', methods: ['POST'])]
-    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour créer un client')]
+    ##[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour créer un client.')]
     public function add(ManagerRegistry $doctrine, Request $request, CustomerService $customerService, SerializerInterface $serializer, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): Response
     {
         $entityManager = $doctrine->getManager();
@@ -57,7 +57,7 @@ class CustomerController extends AbstractFOSRestController
     }
 
     #[Route('/customers/{id}', name: 'customers_edit', methods: ['PUT'])]
-    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour modifier un client')]
+    ##[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour modifier ce client.')]
     public function edit(ManagerRegistry $doctrine, Request $request, Customer $currentCustomer, CustomerService $customerService, SerializerInterface $serializer, ValidatorInterface $validator): Response
     {
         $entityManager = $doctrine->getManager();
@@ -80,7 +80,7 @@ class CustomerController extends AbstractFOSRestController
     }
 
     #[Route('/customers/{id}', name: 'customers_delete', methods: ['DELETE'])]
-    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour supprimer un client')]
+    ##[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour supprimer ce client.')]
     public function delete(ManagerRegistry $doctrine, Customer $customer, CustomerService $customerService): jsonResponse
     {
         $entityManager = $doctrine->getManager();

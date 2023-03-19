@@ -26,7 +26,7 @@ class UserService
         $this->currentDate = new DateTimeImmutable();
     }
 
-    public function addUser(ObjectManager $entityManager, User $user): ?User
+    public function addUser(ObjectManager $entityManager, User $user): User
     {
         $user->setRoles(['ROLE_USER']);
 
@@ -47,11 +47,38 @@ class UserService
         return $user;
     }
 
-    public function bindUser(ObjectManager $entityManager, User $user, Customer $customer): void
+    public function bindingUser(ObjectManager $entityManager, User $user, Customer $customer = null): void
     {
         $user->setCustomer($customer);
 
-        $entityManager->persist($customer);
+        $entityManager->persist($user);
+        $entityManager->flush();
+    }
+
+    public function editUser(ObjectManager $entityManager, User $user, Customer $customer, string $currentPassword): void
+    {
+        $user->setCustomer($customer);
+
+        $user->setRoles(['ROLE_USER']);
+
+        if (trim($user->getPassword()) <> $currentPassword) {
+            $user->setPassword(
+                $this->userPasswordHasher->hashPassword(
+                    $user,
+                    $user->getPassword()
+                )
+            );
+        }
+
+        $user->setRegistrationDate($this->currentDate);
+
+        $entityManager->persist($user);
+        $entityManager->flush();
+    }
+
+    public function removeUser(ObjectManager $entityManager, User $user): void
+    {
+        $entityManager->remove($user);
         $entityManager->flush();
     }
 }

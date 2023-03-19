@@ -9,7 +9,7 @@ use Doctrine\Persistence\ObjectManager;
 
 class ProductService
 {
-    public function setProduct(ObjectManager $entityManager, Product $product, Customer $customer): ?Product
+    public function setProduct(ObjectManager $entityManager, Product $product, Customer $customer): Product
     {
         date_default_timezone_set('Europe/Paris');
         $currentDate = new DateTimeImmutable();
@@ -23,7 +23,7 @@ class ProductService
         return $product;
     }
 
-    public function addProduct(ObjectManager $entityManager, Product $product, Customer $customer): ?Product
+    public function addProduct(ObjectManager $entityManager, Product $product, Customer $customer): Product
     {
         return $this->setProduct($entityManager, $product, $customer);
     }

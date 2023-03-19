@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Customer;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -62,6 +63,35 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->where('u.id = :id')
             ->andWhere('u.customer is NULL')
             ->setParameter('id', $id);
+        return $queryBuilder->getQuery()->setMaxResults(1)->getOneOrNullResult();
+    }
+
+    public function getBindedUser(int $id, Customer $customer_id): ?User
+    {
+        $queryBuilder = $this->createQueryBuilder('u')
+            ->where('u.id = :id')
+            ->andWhere('u.customer = :customer_id')
+            //->andWhere('u.customer is NULL')
+            ->setParameter('id', $id)
+            ->setParameter('customer_id', $customer_id);
+        return $queryBuilder->getQuery()->setMaxResults(1)->getOneOrNullResult();
+    }
+
+    public function getUsersCustomer(Customer $id): array
+    {
+        $queryBuilder = $this->createQueryBuilder('u')
+            ->where('u.customer = :id')
+            ->setParameter('id', $id);
+        return $queryBuilder->getQuery()->getResult();
+    }
+
+    public function getUserCustomer(int $id, Customer $customer_id): ?User
+    {
+        $queryBuilder = $this->createQueryBuilder('u')
+            ->where('u.id = :id')
+            ->andWhere('u.customer = :customer_id')
+            ->setParameter('id', $id)
+            ->setParameter('customer_id', $customer_id);
         return $queryBuilder->getQuery()->setMaxResults(1)->getOneOrNullResult();
     }
 }

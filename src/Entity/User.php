@@ -9,6 +9,7 @@ use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[UniqueEntity(fields: ['email'], message: 'Cette valeur est déjà utilisée.')]
@@ -26,6 +27,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?Customer $customer = null;
 
     #[ORM\Column(length: 180, unique: true)]
+    #[Assert\Email(message: 'The email {{ value }} is not a valid email.')]
     #[Groups(["getUsers"])]
     private ?string $email = null;
 
@@ -37,6 +39,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * @var string The hashed password
      */
     #[ORM\Column]
+    #[Assert\Length(
+        min: 8,
+        max: 60,
+        minMessage: 'Your password must be at least {{ limit }} characters long.',
+        maxMessage: 'Your password cannot be longer than {{ limit }} characters.',
+    )]
     private ?string $password = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
