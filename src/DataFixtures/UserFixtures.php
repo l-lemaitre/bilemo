@@ -3,6 +3,7 @@
 namespace App\DataFixtures;
 
 use App\Entity\User;
+use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -12,6 +13,8 @@ class UserFixtures extends Fixture
     private UserPasswordHasherInterface $userPasswordHasher;
 
     private string $timezone;
+
+    private DateTimeImmutable $currentDate;
 
     public const USERS = [
         [
@@ -33,7 +36,7 @@ class UserFixtures extends Fixture
         $this->timezone = $timezone;
 
         date_default_timezone_set($this->timezone);
-        $this->currentDate = new \DateTime();
+        $this->currentDate = new DateTimeImmutable();
     }
 
     public function load(ObjectManager $manager): void
@@ -58,7 +61,7 @@ class UserFixtures extends Fixture
         $manager->flush();
     }
 
-    public function getDependencies()
+    public function getDependencies(): array
     {
         return [
             CustomerFixtures::class

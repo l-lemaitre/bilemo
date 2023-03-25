@@ -3,22 +3,32 @@
 namespace App\Service;
 
 use App\Entity\Customer;
+use DateTimeImmutable;
 use Doctrine\Persistence\ObjectManager;
 
 class CustomerService
 {
-    public function addCustomer(ObjectManager $entityManager, Customer $customer, \Datetime $currentDate, bool $edit = false): ?Customer
+    private function setCustomer(ObjectManager $entityManager, Customer $customer): ?Customer
     {
+        date_default_timezone_set('Europe/Paris');
+        $currentDate = new DateTimeImmutable();
+
         $customer->setDateAdd($currentDate);
 
         $entityManager->persist($customer);
         $entityManager->flush();
 
-        if ($edit) {
-            return null;
-        } else {
-            return $customer;
-        }
+        return $customer;
+    }
+
+    public function addCustomer(ObjectManager $entityManager, Customer $customer): ?Customer
+    {
+        return $this->setCustomer($entityManager, $customer);
+    }
+
+    public function editCustomer(ObjectManager $entityManager, Customer $customer): void
+    {
+        $this->setCustomer($entityManager, $customer);
     }
 
     public function removeCustomer(ObjectManager $entityManager, Customer $customer): void

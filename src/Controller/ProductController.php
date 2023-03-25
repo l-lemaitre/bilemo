@@ -24,36 +24,22 @@ class ProductController extends AbstractFOSRestController
     #[Route('/products', name: 'products_index', methods: ['GET'])]
     public function index(ManagerRegistry $doctrine, SerializerInterface $serializer): JsonResponse
     {
-        $products = $doctrine->getRepository(Product::class)->findAll();
+        $customer = $this->getUser()->getCustomer();
+        $products = $doctrine->getRepository(Product::class)->getProductsCustomer($customer);
+
         $jsonProducts = $serializer->serialize($products, 'json', ['groups' => 'getProducts']);
         return new JsonResponse($jsonProducts, Response::HTTP_OK, [], true);
     }
 
     #[Route('/products', name: 'products_add', methods: ['POST'])]
-    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour créer un produit')]
+    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour créer un produit.')]
     public function add(ManagerRegistry $doctrine, Request $request, ProductService $productService, SerializerInterface $serializer, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): Response
     {
         $entityManager = $doctrine->getManager();
 
         $product = $serializer->deserialize($request->getContent(), Product::class, 'json');
 
-        $content = $request->toArray();
-
-        $customer = null;
-
-        if (isset($content['customer_id'])) {
-            $customerId = $content['customer_id'];
-            if ($customerId) {
-                $customerRepository = $doctrine->getRepository(Customer::class);
-                $customer = $customerRepository->find($customerId);
-
-                if (!$customer) {
-                    throw new HttpException(400, "La valeur de la clé 'customer_id' est introuvable.");
-                }
-            }
-        } else {
-            throw new HttpException(400, "L'identifiant client du produit est obligatoire.");
-        }
+        $customer = $this->getUser()->getCustomer();
 
         $errors = $validator->validate($product);
 
@@ -62,25 +48,26 @@ class ProductController extends AbstractFOSRestController
             return $this->handleView($view);
         }
 
-        $currentDate = $doctrine->getRepository(Product::class)->currentDate;
+        $product = $productService->addProduct($entityManager, $product, $customer);
 
-        $product = $productService->addProduct($entityManager, $product, $customer, $currentDate);
-
-        $jsonProduct = $serializer->serialize($product, 'json', ['groups' => 'getProducts']);
+        $jsonProducts = $serializer->serialize($product, 'json', ['groups' => 'getProducts']);
         $location = $urlGenerator->generate('app_api_products_show', ['id' => $product->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
-        return new JsonResponse($jsonProduct, Response::HTTP_CREATED, ["Location" => $location], true);
+        return new JsonResponse($jsonProducts, Response::HTTP_CREATED, ["Location" => $location], true);
     }
 
     #[Route('/products/{id}', name: 'products_show', methods: ['GET'])]
-    public function show(Product $product, SerializerInterface $serializer): JsonResponse
+    public function show(ManagerRegistry $doctrine, Product $product, SerializerInterface $serializer, int $id): JsonResponse
     {
-        $product = $serializer->serialize($product, 'json', ['groups' => 'getProducts']);
-        return new JsonResponse($product, Response::HTTP_OK, ['accept' => 'json'], true);
+        $customer = $this->getUser()->getCustomer();
+        $product = $doctrine->getRepository(Product::class)->getProductCustomer($id, $customer);
+
+        $jsonProduct = $serializer->serialize($product, 'json', ['groups' => 'getProducts']);
+        return new JsonResponse($jsonProduct, Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
     #[Route('/products/{id}', name: 'products_edit', methods: ['PUT'])]
-    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour modifier un produit')]
-    public function edit(ManagerRegistry $doctrine, Request $request, Product $currentProduct, ProductService $productService, SerializerInterface $serializer, ValidatorInterface $validator): Response
+    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour modifier un produit.')]
+    public function edit(ManagerRegistry $doctrine, Request $request, Product $currentProduct, ProductService $productService, SerializerInterface $serializer, ValidatorInterface $validator, int $id): Response
     {
         $entityManager = $doctrine->getManager();
 
@@ -89,18 +76,11 @@ class ProductController extends AbstractFOSRestController
             'json',
             [AbstractNormalizer::OBJECT_TO_POPULATE => $currentProduct]);
 
-        $content = $request->toArray();
-        $customerId = $content['customer_id'];
+        $customer = $this->getUser()->getCustomer();
+        $product = $doctrine->getRepository(Product::class)->getProductCustomer($id, $customer);
 
-        $customer = null;
-
-        if ($customerId) {
-            $customerRepository = $doctrine->getRepository(Customer::class);
-            $customer = $customerRepository->find($customerId);
-
-            if (!$customer) {
-                throw new HttpException(400, "La valeur de la clé 'customer_id' est introuvable.");
-            }
+        if (!$product) {
+                throw new HttpException(400, "Vous n'avez pas les droits suffisants pour modifier ce produit.");
         }
 
         $errors = $validator->validate($updatedProduct);
@@ -110,17 +90,22 @@ class ProductController extends AbstractFOSRestController
             return $this->handleView($view);
         }
 
-        $currentDate = $doctrine->getRepository(Product::class)->currentDate;
-
-        $productService->addProduct($entityManager, $updatedProduct, $customer, $currentDate, true);
+        $productService->editProduct($entityManager, $updatedProduct, $customer);
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     #[Route('/products/{id}', name: 'products_delete', methods: ['DELETE'])]
-    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour supprimer un produit')]
-    public function delete(ManagerRegistry $doctrine, Product $product, ProductService $productService): jsonResponse
+    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour supprimer un produit.')]
+    public function delete(ManagerRegistry $doctrine, Product $product, ProductService $productService, int $id): jsonResponse
     {
+        $customer = $this->getUser()->getCustomer();
+        $product = $doctrine->getRepository(Product::class)->getProductCustomer($id, $customer);
+
+        if (!$product) {
+            throw new HttpException(400, "Vous n'avez pas les droits suffisants pour supprimer ce produit.");
+        }
+
         $entityManager = $doctrine->getManager();
 
         $productService->removeProduct($entityManager, $product);
