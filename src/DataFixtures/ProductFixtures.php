@@ -16,7 +16,7 @@ class ProductFixtures extends Fixture
     public const PRODUCTS = [
         [
             'name' => 'Product 1',
-            'price' => '100',
+            'price' => '110',
             'description' => 'Test product 1.'
         ],
         [

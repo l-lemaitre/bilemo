@@ -71,27 +71,17 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $queryBuilder = $this->createQueryBuilder('u')
             ->where('u.id = :id')
             ->andWhere('u.customer = :customer_id')
-            //->andWhere('u.customer is NULL')
             ->setParameter('id', $id)
             ->setParameter('customer_id', $customer_id);
         return $queryBuilder->getQuery()->setMaxResults(1)->getOneOrNullResult();
     }
 
-    public function getUsersCustomer(Customer $id): array
-    {
+    public function getUsersCustomerWithPagination(Customer $id, int $page, int $limit) {
         $queryBuilder = $this->createQueryBuilder('u')
             ->where('u.customer = :id')
-            ->setParameter('id', $id);
-        return $queryBuilder->getQuery()->getResult();
-    }
-
-    public function getUserCustomer(int $id, Customer $customer_id): ?User
-    {
-        $queryBuilder = $this->createQueryBuilder('u')
-            ->where('u.id = :id')
-            ->andWhere('u.customer = :customer_id')
             ->setParameter('id', $id)
-            ->setParameter('customer_id', $customer_id);
-        return $queryBuilder->getQuery()->setMaxResults(1)->getOneOrNullResult();
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit);
+        return $queryBuilder->getQuery()->getResult();
     }
 }
