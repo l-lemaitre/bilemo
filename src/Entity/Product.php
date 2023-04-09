@@ -5,10 +5,40 @@ namespace App\Entity;
 use App\Repository\ProductRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Hateoas\Configuration\Annotation as Hateoas;
+use JMS\Serializer\Annotation\Groups;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
-use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
+/**
+ * @Hateoas\Relation(
+ *      "self",
+ *      href = @Hateoas\Route(
+ *          "app_api_products_show",
+ *          parameters = { "id" = "expr(object.getId())" }
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="getProducts")
+ * )
+ *
+ * @Hateoas\Relation(
+ *      "edit",
+ *      href = @Hateoas\Route(
+ *          "app_api_products_edit",
+ *          parameters = { "id" = "expr(object.getId())" },
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="getProducts")
+ * )
+ *
+ * @Hateoas\Relation(
+ *      "delete",
+ *      href = @Hateoas\Route(
+ *          "app_api_products_delete",
+ *          parameters = { "id" = "expr(object.getId())" },
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="getProducts")
+ * )
+ *
+ */
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 #[UniqueEntity(fields: ['name'], message: 'Cette valeur est déjà utilisée.')]
 class Product
@@ -27,7 +57,6 @@ class Product
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 6)]
     #[Groups(["getProducts"])]
     #[Assert\NotBlank(message: "Le prix du produit est obligatoire.")]
-    //#[Assert\Type(type: Types::DECIMAL, message: "Le prix du produit est incorrect.")]
     private ?string $price = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
@@ -41,7 +70,6 @@ class Product
     #[ORM\ManyToOne(inversedBy: 'products')]
     #[ORM\JoinColumn(nullable: false)]
     #[Groups(["getProducts"])]
-    //#[Assert\NotBlank(message: "L'identifiant client du produit est obligatoire")]
     private ?Customer $customer = null;
 
     public function getId(): ?int

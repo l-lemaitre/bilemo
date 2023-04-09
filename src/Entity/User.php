@@ -5,11 +5,58 @@ namespace App\Entity;
 use App\Repository\UserRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Hateoas\Configuration\Annotation as Hateoas;
+use JMS\Serializer\Annotation\Groups;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 
+/**
+ * @Hateoas\Relation(
+ *      "self",
+ *      href = @Hateoas\Route(
+ *          "app_api_users_show",
+ *          parameters = { "id" = "expr(object.getId())" }
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="getUsers")
+ * )
+ *
+ * @Hateoas\Relation(
+ *      "bind",
+ *      href = @Hateoas\Route(
+ *          "app_api_bind_user",
+ *          parameters = { "id" = "expr(object.getId())" }
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="getUsers")
+ * )
+ *
+ * @Hateoas\Relation(
+ *      "unbind",
+ *      href = @Hateoas\Route(
+ *          "app_api_unbind_user",
+ *          parameters = { "id" = "expr(object.getId())" }
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="getUsers")
+ * )
+ *
+ * @Hateoas\Relation(
+ *      "edit",
+ *      href = @Hateoas\Route(
+ *          "app_api_users_edit"
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="getUsers")
+ * )
+ *
+ * * @Hateoas\Relation(
+ *      "delete",
+ *      href = @Hateoas\Route(
+ *          "app_api_users_delete"
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="getUsers")
+ * )
+ *
+ */
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[UniqueEntity(fields: ['email'], message: 'Cette valeur est déjà utilisée.')]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
@@ -26,6 +73,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?Customer $customer = null;
 
     #[ORM\Column(length: 180, unique: true)]
+    #[Assert\Email(message: 'The email {{ value }} is not a valid email.')]
     #[Groups(["getUsers"])]
     private ?string $email = null;
 
@@ -37,6 +85,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * @var string The hashed password
      */
     #[ORM\Column]
+    #[Assert\Length(
+        min: 8,
+        max: 60,
+        minMessage: 'Your password must be at least {{ limit }} characters long.',
+        maxMessage: 'Your password cannot be longer than {{ limit }} characters.',
+    )]
     private ?string $password = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
@@ -113,7 +167,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * @see PasswordAuthenticatedUserInterface
      */
-    public function getPassword(): string
+    public function getPassword(): ?string
     {
         return $this->password;
     }

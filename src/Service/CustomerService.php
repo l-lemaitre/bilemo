@@ -8,7 +8,7 @@ use Doctrine\Persistence\ObjectManager;
 
 class CustomerService
 {
-    private function setCustomer(ObjectManager $entityManager, Customer $customer): ?Customer
+    private function setCustomer(ObjectManager $entityManager, Customer $customer): Customer
     {
         date_default_timezone_set('Europe/Paris');
         $currentDate = new DateTimeImmutable();
@@ -21,7 +21,7 @@ class CustomerService
         return $customer;
     }
 
-    public function addCustomer(ObjectManager $entityManager, Customer $customer): ?Customer
+    public function addCustomer(ObjectManager $entityManager, Customer $customer): Customer
     {
         return $this->setCustomer($entityManager, $customer);
     }

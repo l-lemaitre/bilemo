@@ -25,7 +25,7 @@ class UserFixtures extends Fixture
         [
             'email' => 'ludoviclemaitre@orange.fr',
             'roles' => ["ROLE_USER"],
-            'password' => 'user_55'
+            'password' => 'user_5_5'
         ]
     ];
 

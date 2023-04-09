@@ -40,11 +40,12 @@ class ProductRepository extends ServiceEntityRepository
         }
     }
 
-    public function getProductsCustomer(Customer $id): array
-    {
+    public function getProductsCustomerWithPagination(Customer $id, int $page, int $limit) {
         $queryBuilder = $this->createQueryBuilder('p')
             ->where('p.customer = :id')
-            ->setParameter('id', $id);
+            ->setParameter('id', $id)
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit);
         return $queryBuilder->getQuery()->getResult();
     }
 
