@@ -2,39 +2,54 @@
 
 namespace App\Service;
 
+use App\Dto\EditProduct;
 use App\Entity\Customer;
 use App\Entity\Product;
 use DateTimeImmutable;
-use Doctrine\Persistence\ObjectManager;
+use Doctrine\Persistence\ManagerRegistry;
 
 class ProductService
 {
-    public function setProduct(ObjectManager $entityManager, Product $product, Customer $customer): Product
+    private ManagerRegistry $doctrine;
+
+    public function __construct(ManagerRegistry $doctrine)
+    {
+        $this->doctrine = $doctrine;
+    }
+
+    private function setProduct(Product $product): Product
     {
         date_default_timezone_set('Europe/Paris');
         $currentDate = new DateTimeImmutable();
 
-        $product->setCustomer($customer);
         $product->setDateAdd($currentDate);
 
+        $entityManager = $this->doctrine->getManager();
         $entityManager->persist($product);
         $entityManager->flush();
 
         return $product;
     }
 
-    public function addProduct(ObjectManager $entityManager, Product $product, Customer $customer): Product
+    public function addProduct(Product $product, Customer $customer): Product
     {
-        return $this->setProduct($entityManager, $product, $customer);
+        $product->setCustomer($customer);
+
+        return $this->setProduct($product);
     }
 
-    public function editProduct(ObjectManager $entityManager, Product $product, Customer $customer): void
+    public function editProduct(Product $product, EditProduct $editProductDto): Product
     {
-        $this->setProduct($entityManager, $product, $customer);
+        $product->setName($editProductDto->getName());
+        $product->setPrice($editProductDto->getPrice());
+        $product->setDescription($editProductDto->getDescription());
+
+        return $this->setProduct($product);
     }
 
-    public function removeProduct(ObjectManager $entityManager, Product $product): void
+    public function removeProduct(Product $product): void
     {
+        $entityManager = $this->doctrine->getManager();
         $entityManager->remove($product);
         $entityManager->flush();
     }

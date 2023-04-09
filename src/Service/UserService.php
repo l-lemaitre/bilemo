@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Dto\EditUser;
 use App\Entity\Customer;
 use App\Entity\User;
 use DateTimeImmutable;
@@ -52,33 +53,37 @@ class UserService
         return $user;
     }
 
-    public function bindUser(User $user, Customer $customer): void
+    public function bindUser(User $user, Customer $customer): User
     {
         $user->setCustomer($customer);
 
         $entityManager = $this->doctrine->getManager();
         $entityManager->persist($user);
         $entityManager->flush();
+
+        return $user;
     }
 
-    public function unbindUser(User $user): void
+    public function unbindUser(User $user): User
     {
         $user->setCustomer(null);
 
         $entityManager = $this->doctrine->getManager();
         $entityManager->persist($user);
         $entityManager->flush();
+
+        return $user;
     }
 
-    public function editUser(User $user, User $updatedUser): void
+    public function editUser(User $user, EditUser $editUserDto): User
     {
-        $user->setEmail($updatedUser->getEmail());
+        $user->setEmail($editUserDto->getEmail());
 
-        if (trim($updatedUser->getPassword())) {
+        if (trim($editUserDto->getPassword())) {
             $user->setPassword(
                 $this->userPasswordHasher->hashPassword(
                     $user,
-                    $updatedUser->getPassword()
+                    $editUserDto->getPassword()
                 )
             );
         }
@@ -88,6 +93,8 @@ class UserService
         $entityManager = $this->doctrine->getManager();
         $entityManager->persist($user);
         $entityManager->flush();
+
+        return $user;
     }
 
     public function removeUser(User $user): void
