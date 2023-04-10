@@ -8,6 +8,7 @@ use App\Entity\User;
 use DateTimeImmutable;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class UserService
 {
@@ -19,16 +20,28 @@ class UserService
 
     private DateTimeImmutable $currentDate;
 
-    public function __construct(ManagerRegistry $doctrine, UserPasswordHasherInterface $userPasswordHasher, string $timezone)
+    private TagAwareCacheInterface $cache;
+
+    public function __construct(ManagerRegistry $doctrine, UserPasswordHasherInterface $userPasswordHasher, string $timezone, TagAwareCacheInterface $cache)
     {
         $this->doctrine = $doctrine;
 
         $this->userPasswordHasher = $userPasswordHasher;
 
         $this->timezone = $timezone;
-
         date_default_timezone_set($this->timezone);
         $this->currentDate = new DateTimeImmutable();
+
+        $this->cache = $cache;
+    }
+
+    private function setUser(User $user): User
+    {
+        $entityManager = $this->doctrine->getManager();
+        $entityManager->persist($user);
+        $entityManager->flush();
+
+        return $user;
     }
 
     public function addUser(User $user): User
@@ -46,37 +59,31 @@ class UserService
 
         $user->setRegistrationDate($this->currentDate);
 
-        $entityManager = $this->doctrine->getManager();
-        $entityManager->persist($user);
-        $entityManager->flush();
-
-        return $user;
+        return $this->setUser($user);
     }
 
     public function bindUser(User $user, Customer $customer): User
     {
+        $this->cache->invalidateTags(['usersCache', 'userCache-' . $user->getId(), 'customersCache']);
+
         $user->setCustomer($customer);
 
-        $entityManager = $this->doctrine->getManager();
-        $entityManager->persist($user);
-        $entityManager->flush();
-
-        return $user;
+        return $this->setUser($user);
     }
 
     public function unbindUser(User $user): User
     {
+        $this->cache->invalidateTags(['usersCache', 'userCache-' . $user->getId(), 'customersCache']);
+
         $user->setCustomer(null);
 
-        $entityManager = $this->doctrine->getManager();
-        $entityManager->persist($user);
-        $entityManager->flush();
-
-        return $user;
+        return $this->setUser($user);
     }
 
     public function editUser(User $user, EditUser $editUserDto): User
     {
+        $this->cache->invalidateTags(['usersCache', 'userCache-' . $user->getId()]);
+
         $user->setEmail($editUserDto->getEmail());
 
         if (trim($editUserDto->getPassword())) {
@@ -90,15 +97,13 @@ class UserService
 
         $user->setRegistrationDate($this->currentDate);
 
-        $entityManager = $this->doctrine->getManager();
-        $entityManager->persist($user);
-        $entityManager->flush();
-
-        return $user;
+        return $this->setUser($user);
     }
 
     public function removeUser(User $user): void
     {
+        $this->cache->invalidateTags(['usersCache', 'userCache-' . $user->getId()]);
+
         $entityManager = $this->doctrine->getManager();
         $entityManager->remove($user);
         $entityManager->flush();

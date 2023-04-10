@@ -12,6 +12,8 @@ use OpenApi\Annotations as OA;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 #[Route('/api', name: 'app_api_', defaults: ['_format'=>'json'])]
 class CustomerController extends AbstractFOSRestController
@@ -36,7 +38,7 @@ class CustomerController extends AbstractFOSRestController
      * @OA\Tag(name="Clients")
      */
     #[Route('/customers', name: 'customers_index', methods: ['GET'])]
-    public function index(SerializerInterface $serializer): JsonResponse
+    public function index(TagAwareCacheInterface $cache, SerializerInterface $serializer): JsonResponse
     {
         $customer = $this->getUser()->getCustomer();
 
@@ -50,8 +52,14 @@ class CustomerController extends AbstractFOSRestController
             return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
         }
 
-        $context = SerializationContext::create()->setGroups(['groups' => 'getCustomers']);
-        $jsonCustomer = $serializer->serialize($customer, 'json', $context);
+        $idCache = 'getCustomer';
+        $jsonCustomer = $cache->get($idCache, function (ItemInterface $item) use ($serializer, $customer) {
+            $item->tag('customersCache');
+
+            $context = SerializationContext::create()->setGroups(['getCustomers']);
+            return $serializer->serialize($customer, 'json', $context);
+        });
+
         return new JsonResponse($jsonCustomer, Response::HTTP_OK, ['accept' => 'json'], true);
     }
 }

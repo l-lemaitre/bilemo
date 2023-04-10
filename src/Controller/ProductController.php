@@ -18,6 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 #[Route('/api', name: 'app_api_', defaults: ['_format'=>'json'])]
 class ProductController extends AbstractFOSRestController
@@ -26,10 +28,13 @@ class ProductController extends AbstractFOSRestController
 
     private ProductService $productService;
 
-    public function __construct(ProductRepository $productRepository, ProductService $productService)
+    private SerializerInterface $serializer;
+
+    public function __construct(ProductRepository $productRepository, ProductService $productService, SerializerInterface $serializer)
     {
         $this->productRepository = $productRepository;
         $this->productService = $productService;
+        $this->serializer = $serializer;
     }
 
     /**
@@ -66,7 +71,7 @@ class ProductController extends AbstractFOSRestController
      * @OA\Tag(name="Produits")
      */
     #[Route('/products', name: 'products_index', methods: ['GET'])]
-    public function index(Request $request, SerializerInterface $serializer): JsonResponse
+    public function index(Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
         $customer = $this->getUser()->getCustomer();
 
@@ -76,16 +81,23 @@ class ProductController extends AbstractFOSRestController
                 'message' => "Vous n'avez pas les droits suffisants pour afficher la liste des produits."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
         }
 
         $page = $request->get('page', 1);
         $limit = $request->get('limit', 5);
-        $products = $this->productRepository->getProductsCustomerWithPagination($customer, $page, $limit);
 
-        $context = SerializationContext::create()->setGroups(['getProducts']);
-        $jsonProducts = $serializer->serialize($products, 'json', $context);
+        $idCache = 'getProducts-' . $page . '-' . $limit;
+        $jsonProducts = $cache->get($idCache, function (ItemInterface $item) use ($customer, $page, $limit) {
+            $item->tag('productsCache');
+
+            $products = $this->productRepository->getProductsCustomerWithPagination($customer, $page, $limit);
+
+            $context = SerializationContext::create()->setGroups(['getProducts']);
+            return $this->serializer->serialize($products, 'json', $context);
+        });
+
         return new JsonResponse($jsonProducts, Response::HTTP_OK, [], true);
     }
 
@@ -125,9 +137,9 @@ class ProductController extends AbstractFOSRestController
      * @OA\Tag(name="Produits")
      */
     #[Route('/products', name: 'products_add', methods: ['POST'])]
-    public function add(Request $request, SerializerInterface $serializer, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): Response
+    public function add(Request $request, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): Response
     {
-        $product = $serializer->deserialize($request->getContent(), Product::class, 'json');
+        $product = $this->serializer->deserialize($request->getContent(), Product::class, 'json');
 
         $customer = $this->getUser()->getCustomer();
 
@@ -137,7 +149,7 @@ class ProductController extends AbstractFOSRestController
                 'message' => "Vous n'avez pas les droits suffisants pour ajouter un produit."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
         }
 
@@ -151,7 +163,7 @@ class ProductController extends AbstractFOSRestController
         $product = $this->productService->addProduct($product, $customer);
 
         $context = SerializationContext::create()->setGroups(['getProducts']);
-        $jsonProducts = $serializer->serialize($product, 'json', $context);
+        $jsonProducts = $this->serializer->serialize($product, 'json', $context);
         $location = $urlGenerator->generate('app_api_products_show', ['id' => $product->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
         return new JsonResponse($jsonProducts, Response::HTTP_CREATED, ["Location" => $location], true);
     }
@@ -181,7 +193,7 @@ class ProductController extends AbstractFOSRestController
      * @OA\Tag(name="Produits")
      */
     #[Route('/products/{id}', name: 'products_show', methods: ['GET'])]
-    public function show(SerializerInterface $serializer, int $id): JsonResponse
+    public function show(TagAwareCacheInterface $cache, int $id): JsonResponse
     {
         $product = $this->productRepository->find($id);
 
@@ -191,7 +203,7 @@ class ProductController extends AbstractFOSRestController
                 'message' => "Ce produit n'existe pas."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
         }
 
@@ -206,12 +218,18 @@ class ProductController extends AbstractFOSRestController
                 'message' => "Vous n'avez pas les droits suffisants pour afficher ce produit."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
         }
 
-        $context = SerializationContext::create()->setGroups(['getProducts']);
-        $jsonProduct = $serializer->serialize($product, 'json', $context);
+        $idCache = 'getProduct-' . $id;
+        $jsonProduct = $cache->get($idCache, function (ItemInterface $item) use ($product) {
+            $item->tag('productsCache-' . $product->getId());
+
+            $context = SerializationContext::create()->setGroups(['getProducts']);
+            return $this->serializer->serialize($product, 'json', $context);
+        });
+
         return new JsonResponse($jsonProduct, Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
@@ -256,7 +274,7 @@ class ProductController extends AbstractFOSRestController
      * @OA\Tag(name="Produits")
      */
     #[Route('/products/{id}', name: 'products_edit', methods: ['PUT'])]
-    public function edit(Request $request, SerializerInterface $serializer, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator, int $id): Response
+    public function edit(Request $request, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator, int $id): Response
     {
         $product = $this->productRepository->find($id);
 
@@ -266,7 +284,7 @@ class ProductController extends AbstractFOSRestController
                 'message' => "Ce produit n'existe pas."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
         }
 
@@ -281,11 +299,11 @@ class ProductController extends AbstractFOSRestController
                 'message' => "Vous n'avez pas les droits suffisants pour modifier ce produit."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
         }
 
-        $editProductDto = $serializer->deserialize($request->getContent(), EditProduct::class, 'json');
+        $editProductDto = $this->serializer->deserialize($request->getContent(), EditProduct::class, 'json');
 
         $errors = $validator->validate($editProductDto);
 
@@ -297,7 +315,7 @@ class ProductController extends AbstractFOSRestController
         $product = $this->productService->editProduct($product, $editProductDto);
 
         $context = SerializationContext::create()->setGroups(['getProducts']);
-        $jsonProduct = $serializer->serialize($product, 'json', $context);
+        $jsonProduct = $this->serializer->serialize($product, 'json', $context);
         $location = $urlGenerator->generate('app_api_products_show', ['id' => $product->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
         return new JsonResponse($jsonProduct, Response::HTTP_OK, ["Location" => $location], true);
     }
@@ -323,7 +341,7 @@ class ProductController extends AbstractFOSRestController
      * @OA\Tag(name="Produits")
      */
     #[Route('/products/{id}', name: 'products_delete', methods: ['DELETE'])]
-    public function delete(SerializerInterface $serializer, int $id): jsonResponse
+    public function delete(int $id): jsonResponse
     {
         $product = $this->productRepository->find($id);
 
@@ -333,7 +351,7 @@ class ProductController extends AbstractFOSRestController
                 'message' => "Ce produit n'existe pas."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
         }
 
@@ -348,7 +366,7 @@ class ProductController extends AbstractFOSRestController
                 'message' => "Vous n'avez pas les droits suffisants pour supprimer ce produit."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
         }
 

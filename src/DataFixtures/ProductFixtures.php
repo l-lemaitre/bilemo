@@ -29,7 +29,6 @@ class ProductFixtures extends Fixture
     public function __construct(string $timezone)
     {
         $this->timezone = $timezone;
-
         date_default_timezone_set($this->timezone);
         $this->currentDate = new DateTimeImmutable();
     }

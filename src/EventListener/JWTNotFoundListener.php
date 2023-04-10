@@ -14,7 +14,7 @@ class JWTNotFoundListener
     {
         $data = [
             'code'  => 403,
-            'message' => 'Token manquant.',
+            'message' => 'Identifiants invalides.',
         ];
 
         $response = new JsonResponse($data, 403);

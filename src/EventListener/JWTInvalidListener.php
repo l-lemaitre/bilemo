@@ -12,7 +12,7 @@ class JWTInvalidListener
      */
     public function onJWTInvalid(JWTInvalidEvent $event)
     {
-        $response = new JWTAuthenticationFailureResponse('Token invalide.', 403);
+        $response = new JWTAuthenticationFailureResponse('Identifiants invalides.', 403);
 
         $event->setResponse($response);
     }

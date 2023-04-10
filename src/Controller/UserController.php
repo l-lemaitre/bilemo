@@ -18,6 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 #[Route('/api', name: 'app_api_', defaults: ['_format'=>'json'])]
 class UserController extends AbstractFOSRestController
@@ -26,10 +28,13 @@ class UserController extends AbstractFOSRestController
 
     private UserService $userService;
 
-    public function __construct(UserRepository $userRepository, UserService $userService)
+    private SerializerInterface $serializer;
+
+    public function __construct(UserRepository $userRepository, UserService $userService, SerializerInterface $serializer)
     {
         $this->userRepository = $userRepository;
         $this->userService = $userService;
+        $this->serializer = $serializer;
     }
 
     /**
@@ -66,7 +71,7 @@ class UserController extends AbstractFOSRestController
      * @OA\Tag(name="Utilisateurs")
      */
     #[Route('/users', name: 'users_index', methods: ['GET'])]
-    public function index(Request $request, SerializerInterface $serializer): JsonResponse
+    public function index(Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
         $customer = $this->getUser()->getCustomer();
 
@@ -76,16 +81,23 @@ class UserController extends AbstractFOSRestController
                 'message' => "Vous n'avez pas les droits suffisants pour afficher la liste des utilisateurs."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
         }
 
         $page = $request->get('page', 1);
         $limit = $request->get('limit', 5);
-        $users = $this->userRepository->getUsersCustomerWithPagination($customer, $page, $limit);
 
-        $context = SerializationContext::create()->setGroups(['getUsers', 'getBindedUsers']);
-        $jsonUsers = $serializer->serialize($users, 'json', $context);
+        $idCache = 'getUsers-' . $page . '-' . $limit;
+        $jsonUsers = $cache->get($idCache, function (ItemInterface $item) use ($customer, $page, $limit) {
+            $item->tag('usersCache');
+
+            $users = $this->userRepository->getUsersCustomerWithPagination($customer, $page, $limit);
+
+            $context = SerializationContext::create()->setGroups(['getUsers', 'getBindedUsers']);
+            return $this->serializer->serialize($users, 'json', $context);
+        });
+
         return new JsonResponse($jsonUsers, Response::HTTP_OK, [], true);
     }
 
@@ -119,9 +131,9 @@ class UserController extends AbstractFOSRestController
      * @OA\Tag(name="Utilisateurs")
      */
     #[Route('/register', name: 'register', methods: ['POST'])]
-    public function register(Request $request, SerializerInterface $serializer, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): Response
+    public function register(Request $request, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): Response
     {
-        $user = $serializer->deserialize($request->getContent(), User::class, 'json');
+        $user = $this->serializer->deserialize($request->getContent(), User::class, 'json');
 
         $errors = $validator->validate($user);
 
@@ -136,14 +148,14 @@ class UserController extends AbstractFOSRestController
                 'message' => "Le Mot de passe n'est pas valide. Il doit contenir 8 caractères alphanumériques au minimum et ne comporter aucun accent ni caractères spéciaux hormis \"-\" ou \"_\"."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_BAD_REQUEST, [], true);
         }
 
         $user = $this->userService->addUser($user);
 
         $context = SerializationContext::create()->setGroups(['getUsers']);
-        $jsonUser = $serializer->serialize($user, 'json', $context);
+        $jsonUser = $this->serializer->serialize($user, 'json', $context);
         $location = $urlGenerator->generate('app_api_users_show', ['id' => $user->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
         return new JsonResponse($jsonUser, Response::HTTP_CREATED, ["Location" => $location], true);
     }
@@ -171,14 +183,14 @@ class UserController extends AbstractFOSRestController
      * )
      *
      * @OA\Response(
-     *     response=406,
+     *     response=400,
      *     description="Utilisateur déjà lié au client | Utilisateur déjà lié à un autre client"
      * )
      *
      * @OA\Tag(name="Utilisateurs")
      */
-    #[Route('/bind/users/{id}', name: 'bind_user', methods: ['PUT'])]
-    public function bind(SerializerInterface $serializer, UrlGeneratorInterface $urlGenerator, int $id): Response
+    #[Route('/users/bind/{id}', name: 'bind_user', methods: ['PUT'])]
+    public function bind(UrlGeneratorInterface $urlGenerator, int $id): Response
     {
         $user = $this->userRepository->find($id);
 
@@ -188,7 +200,7 @@ class UserController extends AbstractFOSRestController
                 'message' => "Cet utilisateur n'existe pas."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
         }
 
@@ -205,30 +217,30 @@ class UserController extends AbstractFOSRestController
                 'message' => "Vous n'avez pas les droits suffisants pour lier cet utilisateur."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
         } elseif ($bindedUser) {
             $data = [
-                'status' => 406,
+                'status' => 400,
                 'message' => "Cet utilisateur est déjà lié à votre client."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_METHOD_NOT_ALLOWED, [], true);
         } elseif (!$userToBind) {
             $data = [
-                'status' => 406,
+                'status' => 400,
                 'message' => "Cet utilisateur est déjà lié à un autre client."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_METHOD_NOT_ALLOWED, [], true);
         }
 
         $user = $this->userService->bindUser($user, $customer);
 
         $context = SerializationContext::create()->setGroups(['getUsers', 'getBindedUsers']);
-        $jsonUser = $serializer->serialize($user, 'json', $context);
+        $jsonUser = $this->serializer->serialize($user, 'json', $context);
         $location = $urlGenerator->generate('app_api_users_show', ['id' => $user->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
         return new JsonResponse($jsonUser, Response::HTTP_OK, ["Location" => $location], true);
     }
@@ -256,14 +268,14 @@ class UserController extends AbstractFOSRestController
      * )
      *
      * @OA\Response(
-     *     response=406,
+     *     response=400,
      *     description="Utilisateur lié à aucun client | Utilisateur lié à un autre client"
      * )
      *
      * @OA\Tag(name="Utilisateurs")
      */
-    #[Route('/unbind/users/{id}', name: 'unbind_user', methods: ['PUT'])]
-    public function unbind(SerializerInterface $serializer, UrlGeneratorInterface $urlGenerator, int $id): Response
+    #[Route('/users/unbind/{id}', name: 'unbind_user', methods: ['PUT'])]
+    public function unbind(UrlGeneratorInterface $urlGenerator, int $id): Response
     {
         $user = $this->userRepository->find($id);
 
@@ -273,7 +285,7 @@ class UserController extends AbstractFOSRestController
                 'message' => "Cet utilisateur n'existe pas."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
         }
 
@@ -290,30 +302,30 @@ class UserController extends AbstractFOSRestController
                 'message' => "Vous n'avez pas les droits suffisants pour délier cet utilisateur."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
         } elseif ($userToBind) {
             $data = [
-                'status' => 406,
+                'status' => 400,
                 'message' => "Cet utilisateur n'est lié à aucun client."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_METHOD_NOT_ALLOWED, [], true);
         } elseif (!$bindedUser) {
             $data = [
-                'status' => 406,
+                'status' => 400,
                 'message' => "Cet utilisateur n'est pas lié à votre client."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_METHOD_NOT_ALLOWED, [], true);
         }
 
         $user = $this->userService->unbindUser($bindedUser);
 
         $context = SerializationContext::create()->setGroups(['getUsers']);
-        $jsonUser = $serializer->serialize($user, 'json', $context);
+        $jsonUser = $this->serializer->serialize($user, 'json', $context);
         $location = $urlGenerator->generate('app_api_users_show', ['id' => $user->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
         return new JsonResponse($jsonUser, Response::HTTP_OK, ["Location" => $location], true);
     }
@@ -343,7 +355,7 @@ class UserController extends AbstractFOSRestController
      * @OA\Tag(name="Utilisateurs")
      */
     #[Route('/users/{id}', name: 'users_show', methods: ['GET'])]
-    public function show(SerializerInterface $serializer, int $id): JsonResponse
+    public function show(TagAwareCacheInterface $cache, int $id): JsonResponse
     {
         $user = $this->userRepository->find($id);
 
@@ -353,7 +365,7 @@ class UserController extends AbstractFOSRestController
                 'message' => "Cet utilisateur n'existe pas."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
         }
 
@@ -368,12 +380,18 @@ class UserController extends AbstractFOSRestController
                 'message' => "Vous n'avez pas les droits suffisants pour afficher cet utilisateur."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
         }
 
-        $context = SerializationContext::create()->setGroups(['getUsers', 'getBindedUsers']);
-        $jsonUser = $serializer->serialize($user, 'json', $context);
+        $idCache = 'getUser-' . $id;
+        $jsonUser = $cache->get($idCache, function (ItemInterface $item) use ($user) {
+            $item->tag('userCache-' . $user->getId());
+
+            $context = SerializationContext::create()->setGroups(['getUsers', 'getBindedUsers']);
+            return $this->serializer->serialize($user, 'json', $context);
+        });
+
         return new JsonResponse($jsonUser, Response::HTTP_OK, ['accept' => 'json'], true);
     }
 
@@ -407,11 +425,12 @@ class UserController extends AbstractFOSRestController
      * @OA\Tag(name="Utilisateurs")
      */
     #[Route('/users', name: 'users_edit', methods: ['PUT'])]
-    public function edit(Request $request, SerializerInterface $serializer, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): Response
+    public function edit(Request $request, UrlGeneratorInterface $urlGenerator, ValidatorInterface $validator): Response
     {
-        $user = $this->getUser();
+        $userId = $this->getUser()->getId();
+        $user = $this->userRepository->find($userId);
 
-        $editUserDto = $serializer->deserialize($request->getContent(), EditUser::class, 'json');
+        $editUserDto = $this->serializer->deserialize($request->getContent(), EditUser::class, 'json');
 
         $errors = $validator->validate($editUserDto);
 
@@ -426,14 +445,14 @@ class UserController extends AbstractFOSRestController
                 'message' => "Le Mot de passe n'est pas valide. Il doit contenir 8 caractères alphanumériques au minimum et ne comporter aucun accent ni caractères spéciaux hormis \"-\" ou \"_\"."
             ];
 
-            $jsonError = $serializer->serialize($data, 'json');
+            $jsonError = $this->serializer->serialize($data, 'json');
             return new JsonResponse($jsonError, Response::HTTP_BAD_REQUEST, [], true);
         }
 
         $user = $this->userService->editUser($user, $editUserDto);
 
         $context = SerializationContext::create()->setGroups(['getUsers']);
-        $jsonUser = $serializer->serialize($user, 'json', $context);
+        $jsonUser = $this->serializer->serialize($user, 'json', $context);
         $location = $urlGenerator->generate('app_api_users_show', ['id' => $user->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
         return new JsonResponse($jsonUser, Response::HTTP_OK, ["Location" => $location], true);
     }
@@ -451,7 +470,8 @@ class UserController extends AbstractFOSRestController
     #[Route('/users', name: 'users_delete', methods: ['DELETE'])]
     public function delete(): jsonResponse
     {
-        $user = $this->getUser();
+        $userId = $this->getUser()->getId();
+        $user = $this->userRepository->find($userId);
 
         $this->userService->removeUser($user);
 

@@ -15,6 +15,6 @@ class JWTExpiredListener
         /** @var JWTAuthenticationFailureResponse */
         $response = $event->getResponse();
 
-        $response->setMessage('Token expiré.');
+        $response->setMessage('Identifiants invalides.');
     }
 }

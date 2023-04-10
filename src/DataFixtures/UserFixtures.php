@@ -34,7 +34,6 @@ class UserFixtures extends Fixture
         $this->userPasswordHasher = $userPasswordHasher;
 
         $this->timezone = $timezone;
-
         date_default_timezone_set($this->timezone);
         $this->currentDate = new DateTimeImmutable();
     }

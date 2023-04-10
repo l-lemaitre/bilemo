@@ -7,7 +7,7 @@ nelmio_api_doc:
             description: "Une API permettant d'accéder au catalogue de téléphones mobiles de l’entreprise BileMo"
             version: "1.0.0"
         paths:
-            /api/login_check:
+            /api/login:
                 post:
                     operationId: postCredentialsItem
                     tags:
