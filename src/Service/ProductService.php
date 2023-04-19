@@ -2,39 +2,63 @@
 
 namespace App\Service;
 
+use App\Dto\EditProduct;
 use App\Entity\Customer;
 use App\Entity\Product;
 use DateTimeImmutable;
-use Doctrine\Persistence\ObjectManager;
+use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class ProductService
 {
-    public function setProduct(ObjectManager $entityManager, Product $product, Customer $customer): Product
+    private ManagerRegistry $doctrine;
+
+    private TagAwareCacheInterface $cache;
+
+    public function __construct(ManagerRegistry $doctrine, TagAwareCacheInterface $cache)
     {
-        date_default_timezone_set('Europe/Paris');
-        $currentDate = new DateTimeImmutable();
+        $this->doctrine = $doctrine;
+        $this->cache = $cache;
+    }
 
-        $product->setCustomer($customer);
-        $product->setDateAdd($currentDate);
-
+    private function setProduct(Product $product): Product
+    {
+        $entityManager = $this->doctrine->getManager();
         $entityManager->persist($product);
         $entityManager->flush();
 
         return $product;
     }
 
-    public function addProduct(ObjectManager $entityManager, Product $product, Customer $customer): Product
+    public function addProduct(Product $product, Customer $customer): Product
     {
-        return $this->setProduct($entityManager, $product, $customer);
+        $product->setCustomer($customer);
+
+        date_default_timezone_set('Europe/Paris');
+        $currentDate = new DateTimeImmutable();
+        $product->setDateAdd($currentDate);
+
+        return $this->setProduct($product);
     }
 
-    public function editProduct(ObjectManager $entityManager, Product $product, Customer $customer): void
+    public function editProduct(Product $product, EditProduct $editProductDto): Product
     {
-        $this->setProduct($entityManager, $product, $customer);
+        $this->cache->invalidateTags(['productsCache', 'productsCache-' . $product->getId()]);
+
+        $product->setName($editProductDto->getName());
+        $product->setPrice($editProductDto->getPrice());
+        if (trim($editProductDto->getDescription())) {
+            $product->setDescription($editProductDto->getDescription());
+        }
+
+        return $this->setProduct($product);
     }
 
-    public function removeProduct(ObjectManager $entityManager, Product $product): void
+    public function removeProduct(Product $product): void
     {
+        $this->cache->invalidateTags(['productsCache', 'productsCache-' . $product->getId()]);
+
+        $entityManager = $this->doctrine->getManager();
         $entityManager->remove($product);
         $entityManager->flush();
     }

@@ -7,10 +7,21 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Hateoas\Configuration\Annotation as Hateoas;
 use JMS\Serializer\Annotation\Groups;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Validator\Constraints as Assert;
 
+/**
+ * @Hateoas\Relation(
+ *      "self",
+ *      href = @Hateoas\Route(
+ *          "app_api_customers_index"
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="getCustomers")
+ * )
+ *
+ */
 #[ORM\Entity(repositoryClass: CustomerRepository::class)]
 #[UniqueEntity(fields: ['name'], message: 'Cette valeur est déjà utilisée.')]
 class Customer
@@ -26,7 +37,7 @@ class Customer
     #[Assert\NotBlank(message: "Le nom du client est obligatoire.")]
     private ?string $name = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Groups(["getCustomers"])]
     private ?\DateTimeInterface $date_add = null;
 

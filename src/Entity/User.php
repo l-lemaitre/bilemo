@@ -69,31 +69,32 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\ManyToOne(inversedBy: 'users')]
     #[ORM\JoinColumn(nullable: true)]
-    #[Groups(["getUsers"])]
+    #[Groups(["getBindedUsers"])]
     private ?Customer $customer = null;
 
     #[ORM\Column(length: 180, unique: true)]
-    #[Assert\Email(message: 'The email {{ value }} is not a valid email.')]
+    #[Assert\NotBlank(message: "L'adresse e-mail est obligatoire.")]
+    #[Assert\Email(message: 'L\'e-mail {{ value }} n\'est pas un e-mail valide.')]
     #[Groups(["getUsers"])]
     private ?string $email = null;
 
     #[ORM\Column]
-    #[Groups(["getUsers"])]
     private array $roles = [];
 
     /**
      * @var string The hashed password
      */
     #[ORM\Column]
+    #[Assert\NotBlank(message: "Le mot de passe est obligatoire.")]
     #[Assert\Length(
         min: 8,
         max: 60,
-        minMessage: 'Your password must be at least {{ limit }} characters long.',
-        maxMessage: 'Your password cannot be longer than {{ limit }} characters.',
+        minMessage: 'Votre mot de passe doit comporter au moins {{ limit }} caractères.',
+        maxMessage: 'Votre mot de passe ne peut pas dépasser {{ limit }} caractères.'
     )]
     private ?string $password = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Groups(["getUsers"])]
     private ?\DateTimeInterface $registration_date = null;
 

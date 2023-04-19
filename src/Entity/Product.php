@@ -63,7 +63,7 @@ class Product
     #[Groups(["getProducts"])]
     private ?string $description = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Groups(["getProducts"])]
     private ?\DateTimeInterface $dateAdd = null;
 

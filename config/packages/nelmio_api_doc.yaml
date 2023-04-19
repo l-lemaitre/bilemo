@@ -1,0 +1,62 @@
+# config\packages\nelmio_api_doc.yaml
+
+nelmio_api_doc:
+    documentation:
+        info:
+            title: "Bilemo"
+            description: "Une API permettant d'accéder au catalogue de téléphones mobiles de l’entreprise BileMo"
+            version: "1.0.0"
+        paths:
+            /api/login:
+                post:
+                    operationId: postCredentialsItem
+                    tags:
+                        - Authentification
+                    summary: "Permet d'obtenir le token JWT pour se logger."
+                    requestBody:
+                        description: "Crée un nouveau token JWT"
+                        content:
+                            application/json:
+                                schema:
+                                    $ref: '#/components/schemas/Credentials'
+                    responses:
+                        '200':
+                            description: "Récupère le token JWT"
+                            content:
+                                application/json:
+                                    schema:
+                                        $ref: '#/components/schemas/Token'
+                        '401':
+                            description: "Identifiants invalides"
+            /api/doc.json:
+                get:
+                    tags:
+                        - Documentation .json
+                    summary: "Permet d'afficher la documentation au format JSON."
+        components:
+            schemas:
+                Token:
+                    type: object
+                    properties:
+                        token:
+                            type: string
+                            readOnly: true
+                Credentials:
+                    type: object
+                    properties:
+                        username:
+                            type: string
+                            default: "contact@user.com"
+                        password:
+                            type: string
+                            default: "password"
+            securitySchemes:
+                bearerAuth:
+                    type: apiKey
+                    in: header
+                    name: Authorization # or another header name
+        security:
+            - bearerAuth: []
+    areas: # to filter documented areas
+        path_patterns:
+            - ^/api(?!/doc$) # Accepts routes under /api except /api/doc

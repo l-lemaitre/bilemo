@@ -57,7 +57,7 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->save($user, true);
     }
 
-    public function getUsertoBind(int $id): ?User
+    public function getUserToBind(int $id): ?User
     {
         $queryBuilder = $this->createQueryBuilder('u')
             ->where('u.id = :id')
