@@ -73,25 +73,29 @@ class ProductController extends AbstractFOSRestController
     #[Route('/products', name: 'products_index', methods: ['GET'])]
     public function index(Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
-        $customer = $this->getUser()->getCustomer();
-
-        if (!$customer) {
-            $data = [
-                'status' => 403,
-                'message' => "Vous n'avez pas les droits suffisants pour afficher la liste des produits."
-            ];
-
-            $jsonError = $this->serializer->serialize($data, 'json');
-            return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
-        }
-
         $page = $request->get('page', 1);
         $limit = $request->get('limit', 5);
 
         $idCache = 'getProducts-' . $page . '-' . $limit;
-        $jsonProducts = $cache->get($idCache, function (ItemInterface $item) use ($customer, $page, $limit) {
+        $cacheItem = $cache->getItem($idCache);
+
+        if(!$cacheItem->isHit()) {
+            $customer = $this->getUser()->getCustomer();
+            if (!$customer) {
+                $data = [
+                    'status' => 403,
+                    'message' => "Vous n'avez pas les droits suffisants pour afficher la liste des produits."
+                ];
+
+                $jsonError = $this->serializer->serialize($data, 'json');
+                return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
+            }
+        }
+
+        $jsonProducts = $cache->get($idCache, function (ItemInterface $item) use ($page, $limit) {
             $item->tag('productsCache');
 
+            $customer = $this->getUser()->getCustomer();
             $products = $this->productRepository->getProductsCustomerWithPagination($customer, $page, $limit);
 
             $context = SerializationContext::create()->setGroups(['getProducts']);
@@ -195,36 +199,41 @@ class ProductController extends AbstractFOSRestController
     #[Route('/products/{id}', name: 'products_show', methods: ['GET'])]
     public function show(TagAwareCacheInterface $cache, int $id): JsonResponse
     {
-        $product = $this->productRepository->find($id);
-
-        if (!$product) {
-            $data = [
-                'status' => 404,
-                'message' => "Ce produit n'existe pas."
-            ];
-
-            $jsonError = $this->serializer->serialize($data, 'json');
-            return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
-        }
-
-        $customer = $this->getUser()->getCustomer();
-        if ($customer) {
-            $productCustomer = $this->productRepository->getProductCustomer($id, $customer);
-        }
-
-        if (!isset($productCustomer)) {
-            $data = [
-                'status' => 403,
-                'message' => "Vous n'avez pas les droits suffisants pour afficher ce produit."
-            ];
-
-            $jsonError = $this->serializer->serialize($data, 'json');
-            return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
-        }
-
         $idCache = 'getProduct-' . $id;
-        $jsonProduct = $cache->get($idCache, function (ItemInterface $item) use ($product) {
-            $item->tag('productsCache-' . $product->getId());
+        $cacheItem = $cache->getItem($idCache);
+
+        if(!$cacheItem->isHit()) {
+            $product = $this->productRepository->find($id);
+            if (!$product) {
+                $data = [
+                    'status' => 404,
+                    'message' => "Ce produit n'existe pas."
+                ];
+
+                $jsonError = $this->serializer->serialize($data, 'json');
+                return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
+            }
+
+            $customer = $this->getUser()->getCustomer();
+            if ($customer) {
+                $productCustomer = $this->productRepository->getProductCustomer($id, $customer);
+            }
+
+            if (!isset($productCustomer)) {
+                $data = [
+                    'status' => 403,
+                    'message' => "Vous n'avez pas les droits suffisants pour afficher ce produit."
+                ];
+
+                $jsonError = $this->serializer->serialize($data, 'json');
+                return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
+            }
+        }
+
+        $jsonProduct = $cache->get($idCache, function (ItemInterface $item) use ($id) {
+            $item->tag('productsCache-' . $id);
+
+            $product = $this->productRepository->find($id);
 
             $context = SerializationContext::create()->setGroups(['getProducts']);
             return $this->serializer->serialize($product, 'json', $context);

@@ -73,25 +73,29 @@ class UserController extends AbstractFOSRestController
     #[Route('/users', name: 'users_index', methods: ['GET'])]
     public function index(Request $request, TagAwareCacheInterface $cache): JsonResponse
     {
-        $customer = $this->getUser()->getCustomer();
-
-        if (!$customer) {
-            $data = [
-                'status' => 403,
-                'message' => "Vous n'avez pas les droits suffisants pour afficher la liste des utilisateurs."
-            ];
-
-            $jsonError = $this->serializer->serialize($data, 'json');
-            return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
-        }
-
         $page = $request->get('page', 1);
         $limit = $request->get('limit', 5);
 
         $idCache = 'getUsers-' . $page . '-' . $limit;
-        $jsonUsers = $cache->get($idCache, function (ItemInterface $item) use ($customer, $page, $limit) {
+        $cacheItem = $cache->getItem($idCache);
+
+        if(!$cacheItem->isHit()) {
+            $customer = $this->getUser()->getCustomer();
+            if (!$customer) {
+                $data = [
+                    'status' => 403,
+                    'message' => "Vous n'avez pas les droits suffisants pour afficher la liste des utilisateurs."
+                ];
+
+                $jsonError = $this->serializer->serialize($data, 'json');
+                return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
+            }
+        }
+
+        $jsonUsers = $cache->get($idCache, function (ItemInterface $item) use ($page, $limit) {
             $item->tag('usersCache');
 
+            $customer = $this->getUser()->getCustomer();
             $users = $this->userRepository->getUsersCustomerWithPagination($customer, $page, $limit);
 
             $context = SerializationContext::create()->setGroups(['getUsers', 'getBindedUsers']);
@@ -357,36 +361,41 @@ class UserController extends AbstractFOSRestController
     #[Route('/users/{id}', name: 'users_show', methods: ['GET'])]
     public function show(TagAwareCacheInterface $cache, int $id): JsonResponse
     {
-        $user = $this->userRepository->find($id);
-
-        if (!$user) {
-            $data = [
-                'status' => 404,
-                'message' => "Cet utilisateur n'existe pas."
-            ];
-
-            $jsonError = $this->serializer->serialize($data, 'json');
-            return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
-        }
-
-        $customer = $this->getUser()->getCustomer();
-        if ($customer) {
-            $userCustomer = $this->userRepository->getBindedUser($id, $customer);
-        }
-
-        if (!isset($userCustomer)) {
-            $data = [
-                'status' => 403,
-                'message' => "Vous n'avez pas les droits suffisants pour afficher cet utilisateur."
-            ];
-
-            $jsonError = $this->serializer->serialize($data, 'json');
-            return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
-        }
-
         $idCache = 'getUser-' . $id;
-        $jsonUser = $cache->get($idCache, function (ItemInterface $item) use ($user) {
-            $item->tag('userCache-' . $user->getId());
+        $cacheItem = $cache->getItem($idCache);
+
+        if(!$cacheItem->isHit()) {
+            $user = $this->userRepository->find($id);
+            if (!$user) {
+                $data = [
+                    'status' => 404,
+                    'message' => "Cet utilisateur n'existe pas."
+                ];
+
+                $jsonError = $this->serializer->serialize($data, 'json');
+                return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
+            }
+
+            $customer = $this->getUser()->getCustomer();
+            if ($customer) {
+                $userCustomer = $this->userRepository->getBindedUser($id, $customer);
+            }
+
+            if (!isset($userCustomer)) {
+                $data = [
+                    'status' => 403,
+                    'message' => "Vous n'avez pas les droits suffisants pour afficher cet utilisateur."
+                ];
+
+                $jsonError = $this->serializer->serialize($data, 'json');
+                return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
+            }
+        }
+
+        $jsonUser = $cache->get($idCache, function (ItemInterface $item) use ($id) {
+            $item->tag('userCache-' . $id);
+
+            $user = $this->userRepository->find($id);
 
             $context = SerializationContext::create()->setGroups(['getUsers', 'getBindedUsers']);
             return $this->serializer->serialize($user, 'json', $context);

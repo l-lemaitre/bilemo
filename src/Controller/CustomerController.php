@@ -40,21 +40,26 @@ class CustomerController extends AbstractFOSRestController
     #[Route('/customers', name: 'customers_index', methods: ['GET'])]
     public function index(TagAwareCacheInterface $cache, SerializerInterface $serializer): JsonResponse
     {
-        $customer = $this->getUser()->getCustomer();
+        $idCache = 'getCustomer';
+        $cacheItem = $cache->getItem($idCache);
 
-        if (!$customer) {
-            $data = [
-                'status' => 404,
-                'message' => "Ce client n'existe pas."
-            ];
+        if(!$cacheItem->isHit()) {
+            $customer = $this->getUser()->getCustomer();
+            if (!$customer) {
+                $data = [
+                    'status' => 404,
+                    'message' => "Vous n'êtes pas lié à un client."
+                ];
 
-            $jsonError = $serializer->serialize($data, 'json');
-            return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
+                $jsonError = $serializer->serialize($data, 'json');
+                return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
+            }
         }
 
-        $idCache = 'getCustomer';
-        $jsonCustomer = $cache->get($idCache, function (ItemInterface $item) use ($serializer, $customer) {
+        $jsonCustomer = $cache->get($idCache, function (ItemInterface $item) use ($serializer) {
             $item->tag('customersCache');
+
+            $customer = $this->getUser()->getCustomer();
 
             $context = SerializationContext::create()->setGroups(['getCustomers']);
             return $serializer->serialize($customer, 'json', $context);
