@@ -84,4 +84,14 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->setMaxResults($limit);
         return $queryBuilder->getQuery()->getResult();
     }
+
+    public function getUserCustomer(int $id, Customer $customer): ?User
+    {
+        $queryBuilder = $this->createQueryBuilder('u')
+            ->where('u.id = :id')
+            ->andWhere('u.customer = :customer_id')
+            ->setParameter('id', $id)
+            ->setParameter('customer_id', $customer);
+        return $queryBuilder->getQuery()->setMaxResults(1)->getOneOrNullResult();
+    }
 }

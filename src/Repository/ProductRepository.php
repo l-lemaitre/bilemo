@@ -49,13 +49,13 @@ class ProductRepository extends ServiceEntityRepository
         return $queryBuilder->getQuery()->getResult();
     }
 
-    public function getProductCustomer(int $id, Customer $customer_id): ?Product
+    public function getProductCustomer(int $id, Customer $customer): ?Product
     {
         $queryBuilder = $this->createQueryBuilder('p')
             ->where('p.id = :id')
             ->andWhere('p.customer = :customer_id')
             ->setParameter('id', $id)
-            ->setParameter('customer_id', $customer_id);
+            ->setParameter('customer_id', $customer);
         return $queryBuilder->getQuery()->setMaxResults(1)->getOneOrNullResult();
     }
 }

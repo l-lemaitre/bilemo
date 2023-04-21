@@ -32,6 +32,8 @@ class ProductService
 
     public function addProduct(Product $product, Customer $customer): Product
     {
+        $this->cache->invalidateTags(['productsCache']);
+
         $product->setCustomer($customer);
 
         date_default_timezone_set('Europe/Paris');
