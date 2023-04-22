@@ -51,7 +51,8 @@ use Symfony\Component\Validator\Constraints as Assert;
  * * @Hateoas\Relation(
  *      "delete",
  *      href = @Hateoas\Route(
- *          "app_api_users_delete"
+ *          "app_api_users_delete",
+ *          parameters = { "id" = "expr(object.getId())" },
  *      ),
  *      exclusion = @Hateoas\Exclusion(groups="getUsers")
  * )

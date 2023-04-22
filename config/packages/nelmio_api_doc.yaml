@@ -26,6 +26,8 @@ nelmio_api_doc:
                                 application/json:
                                     schema:
                                         $ref: '#/components/schemas/Token'
+                        '400':
+                            description: "Mauvaise requête de l'utilisateur"
                         '401':
                             description: "Identifiants invalides"
             /api/doc.json:

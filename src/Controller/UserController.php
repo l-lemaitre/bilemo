@@ -117,6 +117,11 @@ class UserController extends AbstractFOSRestController
      *     )
      * )
      *
+     * @OA\Response(
+     *     response=400,
+     *     description="Mauvaise requête de l'utilisateur"
+     * )
+     *
      * @OA\RequestBody(
      *     required=true,
      *     @OA\JsonContent(
@@ -416,6 +421,11 @@ class UserController extends AbstractFOSRestController
      *     )
      * )
      *
+     * @OA\Response(
+     *     response=400,
+     *     description="Mauvaise requête de l'utilisateur"
+     * )
+     *
      * @OA\RequestBody(
      *     required=true,
      *     @OA\JsonContent(
@@ -467,20 +477,54 @@ class UserController extends AbstractFOSRestController
     }
 
     /**
-     * Cette méthode permet de supprimer l'utilisateur connecté.
+     * Cette méthode permet de supprimer un utilisateur lié au client.
      *
      * @OA\Response(
      *     response=204,
      *     description="Pas de contenu retouné"
      * )
      *
+     * @OA\Response(
+     *     response=403,
+     *     description="Droits insuffisants pour supprimer cet utilisateur"
+     * )
+     *
+     * @OA\Response(
+     *     response=404,
+     *     description="Utilisateur inexistant"
+     * )
+     *
      * @OA\Tag(name="Utilisateurs")
      */
-    #[Route('/users', name: 'users_delete', methods: ['DELETE'])]
-    public function delete(): jsonResponse
+    #[Route('/users/{id}', name: 'users_delete', methods: ['DELETE'])]
+    public function delete(int $id): jsonResponse
     {
-        $userId = $this->getUser()->getId();
-        $user = $this->userRepository->find($userId);
+        $user = $this->userRepository->find($id);
+
+        if (!$user) {
+            $data = [
+                'status' => 404,
+                'message' => "Cet utilisateur n'existe pas."
+            ];
+
+            $jsonError = $this->serializer->serialize($data, 'json');
+            return new JsonResponse($jsonError, Response::HTTP_NOT_FOUND, [], true);
+        }
+
+        $customer = $this->getUser()->getCustomer();
+        if ($customer) {
+            $userCustomer = $this->userRepository->getUserCustomer($id, $customer);
+        }
+
+        if (!isset($userCustomer)) {
+            $data = [
+                'status' => 403,
+                'message' => "Vous n'avez pas les droits suffisants pour supprimer ce compte utilisateur."
+            ];
+
+            $jsonError = $this->serializer->serialize($data, 'json');
+            return new JsonResponse($jsonError, Response::HTTP_FORBIDDEN, [], true);
+        }
 
         $this->userService->removeUser($user);
 

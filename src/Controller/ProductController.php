@@ -118,6 +118,11 @@ class ProductController extends AbstractFOSRestController
      * )
      *
      * @OA\Response(
+     *     response=400,
+     *     description="Mauvaise requête de l'utilisateur"
+     * )
+     *
+     * @OA\Response(
      *     response=403,
      *     description="Droits insuffisants pour ajouter un produit"
      * )
@@ -252,6 +257,11 @@ class ProductController extends AbstractFOSRestController
      *        type="array",
      *        @OA\Items(ref=@Model(type=Product::class, groups={"getProducts"}))
      *     )
+     * )
+     *
+     * @OA\Response(
+     *     response=400,
+     *     description="Mauvaise requête de l'utilisateur"
      * )
      *
      * @OA\Response(
